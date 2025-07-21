@@ -1,0 +1,3 @@
+# ignore /app/output 
+/app/output
+/app/sample_outputs

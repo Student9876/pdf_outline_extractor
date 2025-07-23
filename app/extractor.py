@@ -79,8 +79,8 @@ def is_potential_heading(text):
         return False
     if text.strip().isdigit():  # Only a number like "1." or "12."
         return False
-    if len(text.split()) > 25:  # Too long, likely a paragraph
-        return False
+    # if len(text.split()) > 25:  # Too long, likely a paragraph
+    #     return False
     if len(text.strip()) <= 2:  # Single letter or abbreviation
         return False
     return True

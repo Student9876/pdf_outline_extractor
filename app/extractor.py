@@ -1,4 +1,39 @@
 import fitz  # PyMuPDF
+import pytesseract
+from PIL import Image
+import io
+
+def extract_title_with_ocr(doc):
+    """
+    OCR fallback to extract title from the first page when text extraction fails
+    """
+    try:
+        # Get the first page
+        page = doc.load_page(0)
+        
+        # Render page as image
+        mat = fitz.Matrix(2.0, 2.0)  # Increase resolution for better OCR
+        pix = page.get_pixmap(matrix=mat)
+        img_data = pix.tobytes("png")
+        
+        # Convert to PIL Image
+        image = Image.open(io.BytesIO(img_data))
+        
+        # Use OCR to extract text
+        ocr_text = pytesseract.image_to_string(image)
+        
+        # Extract the first few lines as potential title
+        lines = [line.strip() for line in ocr_text.split('\n') if line.strip()]
+        if lines:
+            # Take the first 3 non-empty lines as potential title
+            title_candidate = " ".join(lines[:3])
+            # Clean up and return if reasonable length
+            if 10 <= len(title_candidate) <= 200:
+                return title_candidate
+        
+        return None
+    except Exception:
+        return None
 
 def extract_outline(pdf_path):
     # Open the PDF using PyMuPDF
@@ -42,8 +77,54 @@ def extract_outline(pdf_path):
     if len(sizes) > 3:
         size_to_level[sizes[3]] = "H3"
 
-    # Try to extract document title using the largest font block
-    title = next((b["text"] for b in blocks if size_to_level.get(b["size"]) == "title"), "Untitled")
+    # Extract document title by collecting all blocks with the largest font size
+    # that appear early in the document (first 3 pages)
+    title_blocks = [
+        b for b in blocks 
+        if size_to_level.get(b["size"]) == "title" and b["page"] <= 3
+    ]
+    
+    if title_blocks:
+        # Group title blocks by line proximity (within 5 pixels vertically)
+        title_lines = []
+        current_line = []
+        last_y = None
+        
+        # Sort by page and y-position to get proper order
+        title_blocks.sort(key=lambda x: (x["page"], x["y"]))
+        
+        for block in title_blocks:
+            if last_y is None or abs(block["y"] - last_y) <= 5:
+                # Same line or very close
+                current_line.append(block)
+            else:
+                # New line
+                if current_line:
+                    title_lines.append(current_line)
+                current_line = [block]
+            last_y = block["y"]
+        
+        # Add the last line
+        if current_line:
+            title_lines.append(current_line)
+        
+        # Concatenate all lines to form the complete title
+        title_parts = []
+        for line in title_lines:
+            line_text = " ".join(block["text"] for block in line).strip()
+            if line_text:
+                title_parts.append(line_text)
+        
+        title = " ".join(title_parts).strip()
+        # Clean up extra spaces
+        title = " ".join(title.split())
+        
+        # If title is still too short, try OCR fallback
+        if len(title) < 10:
+            title = extract_title_with_ocr(doc) or title
+    else:
+        # No title blocks found, try OCR fallback
+        title = extract_title_with_ocr(doc) or "Untitled"
 
     outline = []
 

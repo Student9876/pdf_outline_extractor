@@ -1,8 +1,7 @@
-# app/main.py
+# filepath: c:\Repos\pdf_outline_extractor\app\main_1b.py
 
 import os
 import json
-from extractor import extract_outline
 from persona_analyzer import PersonaAnalyzer
 
 INPUT_DIR = "/app/input"
@@ -19,12 +18,7 @@ def main():
         
         # Convert relative paths to absolute paths
         documents = []
-        for doc_info in input_data["documents"]:
-            # Handle both string and dict formats
-            if isinstance(doc_info, dict):
-                doc_name = doc_info["filename"]
-            else:
-                doc_name = doc_info
+        for doc_name in input_data["documents"]:
             doc_path = os.path.join(INPUT_DIR, doc_name)
             if os.path.exists(doc_path):
                 documents.append(doc_path)
@@ -34,8 +28,8 @@ def main():
             
             analysis_input = {
                 "documents": documents,
-                "persona": input_data["persona"]["role"],
-                "job": input_data["job_to_be_done"]["task"]
+                "persona": input_data["persona"],
+                "job": input_data["job"]
             }
             
             result = analyzer.analyze_documents(analysis_input)
@@ -47,15 +41,12 @@ def main():
             
             print(f"Round 1B analysis completed. Output saved to {output_file}")
     else:
-        # Round 1A: Standard PDF outline extraction
-        for filename in os.listdir(INPUT_DIR):
-            if filename.endswith(".pdf"):
-                filepath = os.path.join(INPUT_DIR, filename)
-                outline = extract_outline(filepath)
-                json_path = os.path.join(OUTPUT_DIR, filename.replace(".pdf", ".json"))
-                with open(json_path, "w", encoding="utf-8") as f:
-                    json.dump(outline, f, indent=2)
-        print("Round 1A outline extraction completed.")
+        print("No input.json found. Expected format:")
+        print({
+            "documents": ["doc1.pdf", "doc2.pdf"],
+            "persona": "PhD Researcher in Computational Biology",
+            "job": "Prepare a comprehensive literature review"
+        })
 
 if __name__ == "__main__":
     main()
